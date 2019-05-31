@@ -16,6 +16,9 @@ $githubScript = '<you_fork/poc.ps1>'
 
 >*To get ChatID: https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id*
 
+>*TO convert script: https://nixu-corp.github.io/*
+
+
 ## Option 1: Powershell
 
 <p align="center">
